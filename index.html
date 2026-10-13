@@ -82,6 +82,8 @@ button.add-prod{border-style:dashed;color:var(--accent);background:transparent;p
 .dose-item .gl{font:700 28px var(--display);font-variant-numeric:tabular-nums;text-align:right}
 .dose-item .gl small{font:500 13px var(--mono);color:var(--muted)}
 .dose-item .tot{grid-column:1/-1;font:500 13px var(--mono);color:var(--muted)}
+.vol-box{display:grid;gap:6px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.vol-box input{font-size:18px;padding:10px 12px}
 .empty{font-size:14px;color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:8px}
 .tbl{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:360px}
@@ -124,9 +126,6 @@ footer{font-size:12px;color:var(--muted)}
         <p class="hint">Exemplo carregado: Sensi Grow A+B a 4 ml/L. Substitua pelos números do seu rótulo. Se o rótulo traz % em peso por volume (p/v), a densidade não é usada.</p>
         <div id="liquids" style="display:grid;gap:12px"></div>
         <button class="add-prod" id="addLiq" type="button">+ Adicionar parte líquida</button>
-        <div class="row">
-          <label for="vol">Volume da solução (L)<input id="vol" type="number" min="0.1" step="0.5"></label>
-        </div>
         <div style="display:grid;gap:6px">
           <p class="hint">O líquido entrega, por litro (mg/L):</p>
           <div class="target" id="target"></div>
@@ -146,6 +145,12 @@ footer{font-size:12px;color:var(--muted)}
     </div>
 
     <aside class="result" aria-live="polite">
+      <div class="vol-box">
+        <label for="vol">Volume que você vai preparar (litros)
+          <input id="vol" type="number" min="0" step="any" inputmode="decimal" placeholder="Digite o volume, ex.: 5">
+        </label>
+        <p class="hint" id="volHint"></p>
+      </div>
       <div class="dose" id="dose"></div>
       <div class="tbl">
         <table>
@@ -208,7 +213,7 @@ const MODELS = [
   {name:"Mix de micronutrientes (exemplo)", items:[["Fe",7],["Mn",2],["Zn",0.7],["B",1.3],["Cu",0.3],["Mo",0.3]]}
 ];
 const DEFAULT = {
-  vol:10, mode:"fit", fit:{},
+  vol:null, volV3:true, mode:"fit", fit:{},
   liquids:[
     {name:"Sensi Grow A", on:true, dose:4, dens:1.25, basis:"pp", items:[["N",3]]},
     {name:"Sensi Grow B", on:true, dose:4, dens:1.25, basis:"pp", items:[["N",1],["P2O5",2],["K2O",6]]}
@@ -222,6 +227,7 @@ const KEY="conv-fert-v2";
 let S=null;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!Array.isArray(S.liquids)||!Array.isArray(S.powders)) S=JSON.parse(JSON.stringify(DEFAULT));
+if(!S.volV3){S.vol=null;S.volV3=true} // remove o antigo padrão de 10 L
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 
 const $=s=>document.querySelector(s);
@@ -350,7 +356,8 @@ function solve(t,cols){
 
 function update(){
   save();
-  const t=targetMg(),vol=S.vol||0;
+  const t=targetMg(),vol=S.vol>0?S.vol:0,hasVol=vol>0;
+  $("#volHint").textContent=hasVol?`Totais calculados para ${fmt(vol,vol%1?1:0)} L.`:"Informe o volume para ver o total de gramas de cada pó.";
   const tk=ORDER.filter(k=>t[k]>0);
   $("#target").innerHTML=tk.length?tk.map(k=>`<div class="chip"><span style="color:var(--${NUT[k].c})">${NUT[k].lb}</span><b>${fmtAuto(t[k])}</b></div>`).join("")
     :`<span class="hint">Nenhum nutriente informado nas partes ativas.</span>`;
@@ -373,7 +380,7 @@ function update(){
   $("#dose").innerHTML=S.powders.length?S.powders.map((p,j)=>`
     <div class="dose-item"><div class="nm">${esc(p.name||"Pó "+(j+1))}</div>
       <div class="gl">${fmt(x[j],2)} <small>g/L</small></div>
-      <div class="tot">${fmt(x[j]*vol,1)} g para ${fmt(vol,1)} L${x[j]===0?" · não entra na mistura":""}</div></div>`).join("")
+      <div class="tot">${x[j]===0?"Não entra na mistura":hasVol?`${fmt(x[j]*vol,1)} g para ${fmt(vol,vol%1?1:0)} L`:"por litro de solução"}</div></div>`).join("")
     :`<div class="empty">Adicione pelo menos um fertilizante em pó.</div>`;
 
   const rows=ORDER.filter(k=>t[k]>0||got[k]>0);
@@ -412,20 +419,20 @@ function update(){
   if(t.Ca>0&&(got.Ca||0)<t.Ca*0.7)notes.push("O líquido traz cálcio e os pós entregam bem menos. Adicione nitrato de cálcio.");
   if(!t.Ca&&!(got.Ca>0))notes.push("Nenhum produto informa cálcio. Muitos líquidos A+B trazem Ca na parte A. Confira o rótulo e, se for o caso, adicione nitrato de cálcio.");
   if(!ORDER.some(k=>!NUT[k].macro&&got[k]>0))notes.push("Os pós não informam micronutrientes (Fe, Mn, Zn, B, Cu, Mo). Inclua um mix de micros se o seu pó não tiver.");
-  if(x.some(g=>g>0&&g*vol<2))notes.push("Alguma quantidade total ficou pequena. Use balança de 0,01 g ou faça uma solução-mãe concentrada e dilua.");
+  if(hasVol&&x.some(g=>g>0&&g*vol<2))notes.push("Alguma quantidade total ficou pequena. Use balança de 0,01 g ou faça uma solução-mãe concentrada e dilua.");
   notes.push("Meça a EC com o líquido na dose atual e ajuste a do pó até bater. Corrija o pH no fim: 5,8–6,3 em hidro e coco, 6,2–6,8 em solo.");
   $("#notes").innerHTML=notes.map(n=>`<li>${n}</li>`).join("");
 
-  const L=[`Solução de ${fmt(vol,1)} L`];
-  S.powders.forEach((p,j)=>{if(x[j]>0)L.push(`• ${p.name||"Pó "+(j+1)}: ${fmt(x[j],2)} g/L → ${fmt(x[j]*vol,1)} g`)});
+  const L=[hasVol?`Solução de ${fmt(vol,vol%1?1:0)} L`:"Dose por litro de solução"];
+  S.powders.forEach((p,j)=>{if(x[j]>0)L.push(`• ${p.name||"Pó "+(j+1)}: ${fmt(x[j],2)} g/L`+(hasVol?` → ${fmt(x[j]*vol,1)} g`:""))});
   L.push(`Entrega (mg/L): `+ORDER.filter(k=>got[k]>0).map(k=>`${NUT[k].lb} ${fmtAuto(got[k])}`).join(" · "));
   L.push(`Alvo do líquido (mg/L): `+tk.map(k=>`${NUT[k].lb} ${fmtAuto(t[k])}`).join(" · "));
   L.push("Depois: medir EC e ajustar pH.");
   $("#recipe").textContent=L.join("\n");
 }
 
-$("#vol").value=S.vol;
-$("#vol").oninput=e=>{S.vol=parseFloat(e.target.value)||0;update()};
+$("#vol").value=S.vol>0?S.vol:"";
+$("#vol").oninput=e=>{const v=parseFloat(String(e.target.value).replace(",","."));S.vol=v>0?v:null;update()};
 $("#mode").onchange=e=>{S.mode=e.target.value;update()};
 $("#addLiq").onclick=()=>{S.liquids.push({name:"Parte "+(S.liquids.length+1),on:true,dose:1,dens:1.2,basis:"pp",items:[["N",0]]});renderLiquids();update()};
 $("#addPow").onclick=()=>{S.powders.push({name:"Pó "+(S.powders.length+1),items:[["N",0]]});renderPowders();update()};

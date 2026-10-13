@@ -9,7 +9,7 @@ Abra o `index.html` no navegador. Não há build nem dependências.
 1. **Líquido:** cadastre cada parte (A, B…), com dose em ml/L, base do percentual (p/p ou p/v) e densidade. Depois adicione os nutrientes do rótulo, um por linha.
 2. **Pós:** adicione um ou mais pós, informando os nutrientes à mão ou carregando um modelo (nitrato de cálcio, sulfato de magnésio, mix de micros etc.).
 3. **Critério:** use "Melhor ajuste" ou priorize um nutriente específico ("Igualar N", por exemplo). Na coluna **Ajustar**, marque quais nutrientes entram no cálculo.
-4. **Receita:** copie o resultado com a dose em g/L e o total para o volume informado.
+4. **Volume e receita:** no painel de resultado, digite o volume que você vai preparar, em litros. Sem volume, a página mostra só a dose em g/L. Copie a receita pronta.
 
 As entradas ficam salvas no `localStorage` do navegador.
 
