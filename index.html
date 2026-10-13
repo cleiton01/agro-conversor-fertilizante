@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conversor Líquido → Pó</title>
+<meta name="description" content="Converte a dose de qualquer fertilizante líquido em gramas de fertilizante em pó, nutriente por nutriente.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: bancada de laboratório — coluna de entradas (líquido → pó) e painel de resultado fixo ao lado no desktop, empilhado no celular */
+:root{
+  --bg:#eef1ea; --surface:#fbfcf8; --ink:#1d2a20; --muted:#5d6b60; --line:#d3dacf;
+  --accent:#2f6b3a; --accent-soft:#dcebd9;
+  --n:#2f6fae; --p:#c2861b; --k:#7a4fa3; --sec:#3f8580; --mic:#7b6a52;
+  --ok:#2f7a45; --warn:#b5761a; --bad:#b03a2e;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121814; --surface:#1a221c; --ink:#e4ebe2; --muted:#9aa89c; --line:#2e3a31;
+  --accent:#7cc289; --accent-soft:#223527;
+  --n:#6fa8e0; --p:#e3ab4a; --k:#b48ae0; --sec:#7cbcb7; --mic:#c4b08f;
+  --ok:#6cc088; --warn:#e3a94e; --bad:#ec7a6c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121814; --surface:#1a221c; --ink:#e4ebe2; --muted:#9aa89c; --line:#2e3a31;
+  --accent:#7cc289; --accent-soft:#223527;
+  --n:#6fa8e0; --p:#e3ab4a; --k:#b48ae0; --sec:#7cbcb7; --mic:#c4b08f;
+  --ok:#6cc088; --warn:#e3a94e; --bad:#ec7a6c; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding:0 16px}
+.wrap{max-width:1100px;margin:0 auto;padding-block:28px 48px;display:grid;gap:24px}
+header{display:grid;gap:6px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(28px,6vw,42px)/1.05 var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.lede{color:var(--muted);max-width:62ch;margin:0}
+.grid{display:grid;gap:24px;grid-template-columns:1fr}
+@media (min-width:920px){.grid{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);align-items:start}
+  .result{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}}
+.col{display:grid;gap:20px;min-width:0}
+section.block{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:14px}
+h2{font:700 19px/1.2 var(--display);margin:0;display:flex;align-items:baseline;gap:10px}
+h2 .step{font:500 12px var(--mono);color:var(--muted)}
+h3{font:700 15px var(--display);margin:0}
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+.product{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:10px;background:var(--bg)}
+.product.off{opacity:.55}
+.p-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.p-head .pname{flex:1 1 160px;font-family:var(--body);font-weight:600}
+.p-params{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.items{display:grid;gap:6px}
+.item{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;gap:6px;align-items:center}
+.item .unit{display:none}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
+input[type=number],input[type=text],select{
+  width:100%;font:500 15px var(--mono);color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:6px;padding:8px 9px;min-width:0}
+select{font-family:var(--body);font-size:14px}
+.item select{border-left-width:4px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.switch{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);font-weight:500;cursor:pointer}
+.switch input{width:17px;height:17px;accent-color:var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.row>label{flex:1 1 160px}
+button{font:600 13px var(--body);border-radius:6px;padding:7px 11px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button.ghost{background:transparent;border-style:dashed;color:var(--accent);justify-self:start}
+button.x{width:34px;height:34px;padding:0;font-size:18px;line-height:1;color:var(--muted)}
+button.add-prod{border-style:dashed;color:var(--accent);background:transparent;padding:10px}
+.target{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border-radius:8px;padding:6px 10px;background:var(--bg);border:1px solid var(--line);display:grid;gap:0;min-width:74px}
+.chip b{font:500 16px var(--mono);font-variant-numeric:tabular-nums}
+.chip span{font:500 11px var(--mono);letter-spacing:.04em}
+
+.result{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:18px;min-width:0}
+.dose{display:grid;gap:10px}
+.dose-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:baseline;padding:12px;border-radius:8px;background:var(--accent-soft)}
+.dose-item .nm{font-weight:600;overflow-wrap:anywhere}
+.dose-item .gl{font:700 28px var(--display);font-variant-numeric:tabular-nums;text-align:right}
+.dose-item .gl small{font:500 13px var(--mono);color:var(--muted)}
+.dose-item .tot{grid-column:1/-1;font:500 13px var(--mono);color:var(--muted)}
+.empty{font-size:14px;color:var(--muted);padding:12px;border:1px dashed var(--line);border-radius:8px}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:360px}
+th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--mono)}
+td.fitc{text-align:center;width:44px}
+td.fitc input{width:16px;height:16px;accent-color:var(--accent)}
+.nlabel{font-family:var(--body);font-weight:600}
+.bar{height:5px;background:var(--bg);border-radius:3px;position:relative;margin-top:4px;overflow:hidden;min-width:70px}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:3px}
+.bar .mark{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.6}
+.pill{display:inline-block;font:600 11px var(--mono);padding:2px 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.mut{color:var(--muted)}
+.verdict{font-size:14px;margin:0}
+.notes{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.notes li{font-size:13px;padding-left:14px;position:relative}
+.notes li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--warn)}
+.recipe{font:13px/1.6 var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.recipe-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.formula{font:12px/1.6 var(--mono);color:var(--muted);margin:0}
+footer{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s ease}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Fertirrigação · mg/L · base do rótulo</div>
+    <h1>Conversor líquido → pó</h1>
+    <p class="lede">Monte o rótulo de cada produto escolhendo o nutriente e informando o valor. A página calcula quantos gramas por litro dos pós entregam o mesmo que o líquido.</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <section class="block" aria-labelledby="h-liq">
+        <h2 id="h-liq"><span class="step">1</span>Fertilizante líquido</h2>
+        <p class="hint">Exemplo carregado: Sensi Grow A+B a 4 ml/L. Substitua pelos números do seu rótulo. Se o rótulo traz % em peso por volume (p/v), a densidade não é usada.</p>
+        <div id="liquids" style="display:grid;gap:12px"></div>
+        <button class="add-prod" id="addLiq" type="button">+ Adicionar parte líquida</button>
+        <div class="row">
+          <label for="vol">Volume da solução (L)<input id="vol" type="number" min="0.1" step="0.5"></label>
+        </div>
+        <div style="display:grid;gap:6px">
+          <p class="hint">O líquido entrega, por litro (mg/L):</p>
+          <div class="target" id="target"></div>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="h-pow">
+        <h2 id="h-pow"><span class="step">2</span>Fertilizantes em pó</h2>
+        <p class="hint">Adicione um ou mais pós. Para começar rápido, carregue um modelo e edite os valores.</p>
+        <div id="powders" style="display:grid;gap:12px"></div>
+        <button class="add-prod" id="addPow" type="button">+ Adicionar pó</button>
+        <div class="row">
+          <label for="mode">Critério de equivalência<select id="mode"></select></label>
+        </div>
+        <p class="hint" id="modeHint"></p>
+      </section>
+    </div>
+
+    <aside class="result" aria-live="polite">
+      <div class="dose" id="dose"></div>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>Nutriente</th><th>Líquido</th><th>Pó</th><th>Dif.</th><th title="Considerar no ajuste">Ajustar</th></tr></thead>
+          <tbody id="cmp"></tbody>
+        </table>
+      </div>
+      <p class="verdict" id="verdict"></p>
+      <div style="display:grid;gap:8px">
+        <h3>Antes de aplicar</h3>
+        <ul class="notes" id="notes"></ul>
+      </div>
+      <div style="display:grid;gap:8px">
+        <div class="recipe-head"><h3>Receita</h3><button id="copy" type="button">Copiar</button></div>
+        <pre class="recipe" id="recipe"></pre>
+      </div>
+      <p class="formula">mg/L = dose (ml/L) × densidade (g/ml) × % × 10<br>g/L de pó = mg/L desejado ÷ (% × 10)<br>P → P₂O₅ ×2,291 · K → K₂O ×1,205 · CaO → Ca ×0,715 · MgO → Mg ×0,603</p>
+    </aside>
+  </div>
+  <footer>Estimativa a partir das garantias do rótulo. Confirme sempre com medidor de EC e ajuste o pH depois de dissolver tudo.</footer>
+</div>
+
+<script>
+/* Nutrientes canônicos (como aparecem no resultado) */
+const NUT = {
+  N:{lb:"N",c:"n",macro:1}, P2O5:{lb:"P₂O₅",c:"p",macro:1}, K2O:{lb:"K₂O",c:"k",macro:1},
+  Ca:{lb:"Ca",c:"sec",macro:1}, Mg:{lb:"Mg",c:"sec",macro:1}, S:{lb:"S",c:"sec",macro:1},
+  Fe:{lb:"Fe",c:"mic"}, Mn:{lb:"Mn",c:"mic"}, Zn:{lb:"Zn",c:"mic"}, B:{lb:"B",c:"mic"},
+  Cu:{lb:"Cu",c:"mic"}, Mo:{lb:"Mo",c:"mic"}
+};
+const ORDER = Object.keys(NUT);
+/* Opções de entrada → nutriente canônico × fator */
+const INPUTS = [
+  {id:"N",lb:"N — nitrogênio",to:"N",f:1},
+  {id:"P2O5",lb:"P₂O₅ — fósforo (óxido)",to:"P2O5",f:1},
+  {id:"P",lb:"P — fósforo (elementar)",to:"P2O5",f:2.291},
+  {id:"K2O",lb:"K₂O — potássio (óxido)",to:"K2O",f:1},
+  {id:"K",lb:"K — potássio (elementar)",to:"K2O",f:1.205},
+  {id:"Ca",lb:"Ca — cálcio",to:"Ca",f:1},
+  {id:"CaO",lb:"CaO — cálcio (óxido)",to:"Ca",f:0.715},
+  {id:"Mg",lb:"Mg — magnésio",to:"Mg",f:1},
+  {id:"MgO",lb:"MgO — magnésio (óxido)",to:"Mg",f:0.603},
+  {id:"S",lb:"S — enxofre",to:"S",f:1},
+  {id:"Fe",lb:"Fe — ferro",to:"Fe",f:1},
+  {id:"Mn",lb:"Mn — manganês",to:"Mn",f:1},
+  {id:"Zn",lb:"Zn — zinco",to:"Zn",f:1},
+  {id:"B",lb:"B — boro",to:"B",f:1},
+  {id:"Cu",lb:"Cu — cobre",to:"Cu",f:1},
+  {id:"Mo",lb:"Mo — molibdênio",to:"Mo",f:1}
+];
+const IN = Object.fromEntries(INPUTS.map(o=>[o.id,o]));
+const MODELS = [
+  {name:"Crescimento hidropônico 13-6-26", items:[["N",13],["P2O5",6],["K2O",26],["Mg",2],["S",3]]},
+  {name:"Universal 20-20-20", items:[["N",20],["P2O5",20],["K2O",20]]},
+  {name:"Nitrato de cálcio", items:[["N",15.5],["Ca",19]]},
+  {name:"Nitrato de potássio", items:[["N",13],["K2O",44]]},
+  {name:"Sulfato de potássio", items:[["K2O",50],["S",18]]},
+  {name:"Sulfato de magnésio", items:[["Mg",9.5],["S",12.5]]},
+  {name:"MAP purificado", items:[["N",11],["P2O5",52]]},
+  {name:"Mix de micronutrientes (exemplo)", items:[["Fe",7],["Mn",2],["Zn",0.7],["B",1.3],["Cu",0.3],["Mo",0.3]]}
+];
+const DEFAULT = {
+  vol:10, mode:"fit", fit:{},
+  liquids:[
+    {name:"Sensi Grow A", on:true, dose:4, dens:1.25, basis:"pp", items:[["N",3]]},
+    {name:"Sensi Grow B", on:true, dose:4, dens:1.25, basis:"pp", items:[["N",1],["P2O5",2],["K2O",6]]}
+  ],
+  powders:[
+    {name:"Crescimento hidropônico 13-6-26", items:[["N",13],["P2O5",6],["K2O",26],["Mg",2],["S",3]]},
+    {name:"Nitrato de cálcio", items:[["N",15.5],["Ca",19]]}
+  ]
+};
+const KEY="conv-fert-v2";
+let S=null;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!Array.isArray(S.liquids)||!Array.isArray(S.powders)) S=JSON.parse(JSON.stringify(DEFAULT));
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const fmt=(v,d=0)=>Number.isFinite(v)?v.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
+const fmtAuto=v=>fmt(v,v<10&&v>0?2:0);
+
+function itemsHTML(kind,pi,items){
+  return items.map(([id,v],ii)=>{
+    const col=NUT[IN[id].to].c;
+    return `<div class="item">
+      <select id="${kind}${pi}n${ii}" aria-label="Nutriente" style="border-left-color:var(--${col})">
+        ${INPUTS.map(o=>`<option value="${o.id}" ${o.id===id?"selected":""}>${o.lb}</option>`).join("")}
+      </select>
+      <input id="${kind}${pi}v${ii}" type="number" min="0" step="0.01" value="${v}" aria-label="Valor em %" placeholder="%">
+      <button class="x" type="button" id="${kind}${pi}x${ii}" aria-label="Remover nutriente">×</button>
+    </div>`}).join("");
+}
+function bindItems(kind,pi,p,rerender){
+  p.items.forEach((it,ii)=>{
+    $(`#${kind}${pi}n${ii}`).onchange=e=>{it[0]=e.target.value;e.target.style.borderLeftColor=`var(--${NUT[IN[it[0]].to].c})`;update()};
+    $(`#${kind}${pi}v${ii}`).oninput=e=>{it[1]=parseFloat(e.target.value)||0;update()};
+    $(`#${kind}${pi}x${ii}`).onclick=()=>{p.items.splice(ii,1);rerender();update()};
+  });
+  $(`#${kind}${pi}add`).onclick=()=>{
+    const used=new Set(p.items.map(i=>IN[i[0]].to));
+    const next=INPUTS.find(o=>o.f===1&&!used.has(o.to))||INPUTS[0];
+    p.items.push([next.id,0]);rerender();update();
+    const el=$(`#${kind}${pi}v${p.items.length-1}`); el&&el.focus();
+  };
+}
+
+function renderLiquids(){
+  $("#liquids").innerHTML=S.liquids.map((l,i)=>`
+    <div class="product ${l.on?"":"off"}">
+      <div class="p-head">
+        <input class="pname" id="l${i}name" type="text" value="${esc(l.name)}" aria-label="Nome do produto">
+        <label class="switch"><input id="l${i}on" type="checkbox" ${l.on?"checked":""}> Usar</label>
+        <button class="x" type="button" id="l${i}del" aria-label="Remover produto">×</button>
+      </div>
+      <div class="p-params">
+        <label for="l${i}dose">Dose (ml/L)<input id="l${i}dose" type="number" min="0" step="0.5" value="${l.dose}"></label>
+        <label for="l${i}basis">Base do %<select id="l${i}basis">
+          <option value="pp" ${l.basis==="pp"?"selected":""}>p/p (peso)</option>
+          <option value="pv" ${l.basis==="pv"?"selected":""}>p/v (g/100 ml)</option></select></label>
+        <label for="l${i}dens">Densidade (g/ml)<input id="l${i}dens" type="number" min="0" step="0.01" value="${l.dens}" ${l.basis==="pv"?"disabled":""}></label>
+      </div>
+      <div class="items">${itemsHTML("l",i,l.items)}</div>
+      <button class="ghost" type="button" id="l${i}add">+ nutriente</button>
+    </div>`).join("");
+  S.liquids.forEach((l,i)=>{
+    $(`#l${i}name`).oninput=e=>{l.name=e.target.value;update()};
+    $(`#l${i}on`).onchange=e=>{l.on=e.target.checked;renderLiquids();update()};
+    $(`#l${i}del`).onclick=()=>{S.liquids.splice(i,1);renderLiquids();update()};
+    $(`#l${i}dose`).oninput=e=>{l.dose=parseFloat(e.target.value)||0;update()};
+    $(`#l${i}dens`).oninput=e=>{l.dens=parseFloat(e.target.value)||0;update()};
+    $(`#l${i}basis`).onchange=e=>{l.basis=e.target.value;renderLiquids();update()};
+    bindItems("l",i,l,renderLiquids);
+  });
+}
+function renderPowders(){
+  $("#powders").innerHTML=S.powders.map((p,i)=>`
+    <div class="product">
+      <div class="p-head">
+        <input class="pname" id="p${i}name" type="text" value="${esc(p.name)}" aria-label="Nome do pó">
+        <button class="x" type="button" id="p${i}del" aria-label="Remover pó">×</button>
+      </div>
+      <label for="p${i}model">Carregar modelo
+        <select id="p${i}model"><option value="">— escolher —</option>
+        ${MODELS.map((m,mi)=>`<option value="${mi}">${m.name}</option>`).join("")}</select>
+      </label>
+      <div class="items">${itemsHTML("p",i,p.items)}</div>
+      <button class="ghost" type="button" id="p${i}add">+ nutriente</button>
+    </div>`).join("")||`<div class="empty">Nenhum pó adicionado. Adicione um para calcular a dose.</div>`;
+  S.powders.forEach((p,i)=>{
+    $(`#p${i}name`).oninput=e=>{p.name=e.target.value;update()};
+    $(`#p${i}del`).onclick=()=>{S.powders.splice(i,1);renderPowders();update()};
+    $(`#p${i}model`).onchange=e=>{
+      if(e.target.value==="")return;
+      const m=MODELS[+e.target.value];
+      p.name=m.name;p.items=m.items.map(x=>[...x]);renderPowders();update();
+    };
+    bindItems("p",i,p,renderPowders);
+  });
+}
+
+/* mg/L de cada nutriente canônico por 1 g/L (pó) ou pela dose (líquido) */
+function profile(items,gramsPerL){
+  const o={};
+  items.forEach(([id,v])=>{const d=IN[id];if(!d)return;o[d.to]=(o[d.to]||0)+v*d.f*10*gramsPerL});
+  return o;
+}
+function targetMg(){
+  const t={};
+  S.liquids.filter(l=>l.on).forEach(l=>{
+    const g=l.basis==="pv"?l.dose:l.dose*l.dens;
+    const pr=profile(l.items,g);
+    for(const k in pr)t[k]=(t[k]||0)+pr[k];
+  });
+  return t;
+}
+const isFit=(k,t)=>t[k]>0&&(S.fit[k]!==undefined?S.fit[k]:!!NUT[k].macro);
+
+/* Mínimos quadrados não negativos com erro relativo (descida por coordenadas) */
+function solve(t,cols){
+  const n=cols.length,x=new Array(n).fill(0);
+  const keys=ORDER.filter(k=>isFit(k,t)||(S.mode===k&&t[k]>0));
+  if(!keys.length||!n)return x;
+  const w={};keys.forEach(k=>w[k]=(1/t[k])*(S.mode===k?40:1));
+  for(let it=0;it<800;it++){
+    let moved=0;
+    for(let j=0;j<n;j++){
+      let num=0,den=0;
+      keys.forEach(k=>{
+        const c=cols[j][k]||0;if(!c)return;
+        let r=-t[k];for(let m=0;m<n;m++)if(m!==j)r+=(cols[m][k]||0)*x[m];
+        num+=w[k]*w[k]*c*(-r);den+=w[k]*w[k]*c*c;
+      });
+      const nx=den>0?Math.max(0,num/den):0;
+      moved=Math.max(moved,Math.abs(nx-x[j]));x[j]=nx;
+    }
+    if(moved<1e-7)break;
+  }
+  return x;
+}
+
+function update(){
+  save();
+  const t=targetMg(),vol=S.vol||0;
+  const tk=ORDER.filter(k=>t[k]>0);
+  $("#target").innerHTML=tk.length?tk.map(k=>`<div class="chip"><span style="color:var(--${NUT[k].c})">${NUT[k].lb}</span><b>${fmtAuto(t[k])}</b></div>`).join("")
+    :`<span class="hint">Nenhum nutriente informado nas partes ativas.</span>`;
+
+  // critério
+  const ms=$("#mode");
+  if(S.mode!=="fit"&&!(t[S.mode]>0))S.mode="fit";
+  ms.innerHTML=`<option value="fit">Melhor ajuste dos nutrientes marcados</option>`+
+    tk.map(k=>`<option value="${k}">Igualar ${NUT[k].lb}</option>`).join("");
+  ms.value=S.mode;
+  $("#modeHint").textContent=S.mode==="fit"
+    ?"Busca a combinação de pós com a menor diferença percentual nos nutrientes marcados em “Ajustar”."
+    :`Prioriza bater ${NUT[S.mode].lb} exatamente. Os demais nutrientes marcados se aproximam no que for possível.`;
+
+  const cols=S.powders.map(p=>profile(p.items,1));
+  const x=solve(t,cols);
+  const got={};
+  cols.forEach((c,j)=>{for(const k in c)got[k]=(got[k]||0)+c[k]*x[j]});
+
+  $("#dose").innerHTML=S.powders.length?S.powders.map((p,j)=>`
+    <div class="dose-item"><div class="nm">${esc(p.name||"Pó "+(j+1))}</div>
+      <div class="gl">${fmt(x[j],2)} <small>g/L</small></div>
+      <div class="tot">${fmt(x[j]*vol,1)} g para ${fmt(vol,1)} L${x[j]===0?" · não entra na mistura":""}</div></div>`).join("")
+    :`<div class="empty">Adicione pelo menos um fertilizante em pó.</div>`;
+
+  const rows=ORDER.filter(k=>t[k]>0||got[k]>0);
+  let worst=0,anyFit=false;
+  $("#cmp").innerHTML=rows.map(k=>{
+    const T=t[k]||0,G=got[k]||0,max=Math.max(T,G)*1.15||1,c=NUT[k].c;
+    let diff;
+    if(T>0){
+      const d=(G-T)/T*100;
+      if(isFit(k,t)){worst=Math.max(worst,Math.abs(d));anyFit=true}
+      const cls=Math.abs(d)<=10?"ok":Math.abs(d)<=30?"warn":"bad";
+      diff=`<span class="pill ${cls}">${d>0?"+":""}${fmt(d)}%</span>`;
+    }else diff=`<span class="pill mut">só no pó</span>`;
+    const fitBox=T>0?`<input type="checkbox" data-fit="${k}" ${isFit(k,t)?"checked":""} aria-label="Ajustar ${NUT[k].lb}">`:"";
+    return `<tr><td><span class="nlabel" style="color:var(--${c})">${NUT[k].lb}</span>
+      <div class="bar"><i style="width:${G/max*100}%;background:var(--${c})"></i>${T>0?`<span class="mark" style="left:${T/max*100}%"></span>`:""}</div></td>
+      <td>${T>0?fmtAuto(T):"–"}</td><td>${fmtAuto(G)}</td><td>${diff}</td><td class="fitc">${fitBox}</td></tr>`;
+  }).join("");
+  document.querySelectorAll("[data-fit]").forEach(cb=>cb.onchange=e=>{S.fit[e.target.dataset.fit]=e.target.checked;update()});
+
+  const v=$("#verdict");
+  if(!tk.length)v.innerHTML="Ative pelo menos uma parte líquida com dose e nutrientes preenchidos.";
+  else if(!S.powders.length)v.innerHTML="";
+  else if(!anyFit)v.innerHTML="Marque ao menos um nutriente em “Ajustar” para calcular.";
+  else if(worst<=10)v.innerHTML=`<span class="pill ok">Boa equivalência</span> Os nutrientes marcados ficam a até 10% do líquido.`;
+  else if(worst<=30)v.innerHTML=`<span class="pill warn">Aceitável</span> Algum nutriente desvia entre 10% e 30%. Outro pó pode corrigir.`;
+  else v.innerHTML=`<span class="pill bad">Proporção diferente</span> Os pós não reproduzem a proporção do líquido. Adicione um pó que complete o nutriente em falta.`;
+
+  // alertas
+  const notes=["Use pó 100% solúvel, próprio para fertirrigação ou hidroponia. Adubo de solo comum não dissolve e entope gotejadores."];
+  const used=S.powders.filter((p,j)=>x[j]>0);
+  const has=(p,ks)=>p.items.some(([id,val])=>val>0&&ks.includes(IN[id].to));
+  const caP=used.filter(p=>has(p,["Ca"])), psP=used.filter(p=>has(p,["P2O5","S"]));
+  if(caP.length&&psP.length)notes.push("Dissolva o pó com cálcio separado dos pós com fosfato ou sulfato. Coloque cada um diluído na água final, um de cada vez, para não precipitar.");
+  if(caP.some(p=>psP.includes(p)))notes.push("Um mesmo pó tem cálcio junto com fosfato ou sulfato. Confira se o fabricante garante a solubilidade dessa mistura.");
+  if(t.Ca>0&&(got.Ca||0)<t.Ca*0.7)notes.push("O líquido traz cálcio e os pós entregam bem menos. Adicione nitrato de cálcio.");
+  if(!t.Ca&&!(got.Ca>0))notes.push("Nenhum produto informa cálcio. Muitos líquidos A+B trazem Ca na parte A. Confira o rótulo e, se for o caso, adicione nitrato de cálcio.");
+  if(!ORDER.some(k=>!NUT[k].macro&&got[k]>0))notes.push("Os pós não informam micronutrientes (Fe, Mn, Zn, B, Cu, Mo). Inclua um mix de micros se o seu pó não tiver.");
+  if(x.some(g=>g>0&&g*vol<2))notes.push("Alguma quantidade total ficou pequena. Use balança de 0,01 g ou faça uma solução-mãe concentrada e dilua.");
+  notes.push("Meça a EC com o líquido na dose atual e ajuste a do pó até bater. Corrija o pH no fim: 5,8–6,3 em hidro e coco, 6,2–6,8 em solo.");
+  $("#notes").innerHTML=notes.map(n=>`<li>${n}</li>`).join("");
+
+  const L=[`Solução de ${fmt(vol,1)} L`];
+  S.powders.forEach((p,j)=>{if(x[j]>0)L.push(`• ${p.name||"Pó "+(j+1)}: ${fmt(x[j],2)} g/L → ${fmt(x[j]*vol,1)} g`)});
+  L.push(`Entrega (mg/L): `+ORDER.filter(k=>got[k]>0).map(k=>`${NUT[k].lb} ${fmtAuto(got[k])}`).join(" · "));
+  L.push(`Alvo do líquido (mg/L): `+tk.map(k=>`${NUT[k].lb} ${fmtAuto(t[k])}`).join(" · "));
+  L.push("Depois: medir EC e ajustar pH.");
+  $("#recipe").textContent=L.join("\n");
+}
+
+$("#vol").value=S.vol;
+$("#vol").oninput=e=>{S.vol=parseFloat(e.target.value)||0;update()};
+$("#mode").onchange=e=>{S.mode=e.target.value;update()};
+$("#addLiq").onclick=()=>{S.liquids.push({name:"Parte "+(S.liquids.length+1),on:true,dose:1,dens:1.2,basis:"pp",items:[["N",0]]});renderLiquids();update()};
+$("#addPow").onclick=()=>{S.powders.push({name:"Pó "+(S.powders.length+1),items:[["N",0]]});renderPowders();update()};
+$("#copy").onclick=e=>{
+  const b=e.currentTarget,txt=$("#recipe").textContent;
+  const done=()=>{b.textContent="Copiado";setTimeout(()=>b.textContent="Copiar",1500)};
+  const sel=()=>{const r=document.createRange();r.selectNodeContents($("#recipe"));const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent="Selecionado"};
+  try{navigator.clipboard.writeText(txt).then(done).catch(sel)}catch(err){sel()}
+};
+renderLiquids();renderPowders();update();
+</script>
+</body>
+</html>
